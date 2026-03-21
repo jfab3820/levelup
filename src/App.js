@@ -510,7 +510,57 @@ function ReviewTab({ traits, focus, onCommit }) {
 
 // ─── Log Tab ──────────────────────────────────────────────────────────────────
 function LogTab({ log }) {
-  if (!log.length) {
+  const [expanded, setExpanded] = useState({});
+
+  function toggle(key) {
+    setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function getWeekStart(dateStr) {
+    const d = new Date(dateStr);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    return d.toISOString().split("T")[0];
+  }
+
+  function formatDate(dateStr) {
+    const d = new Date(dateStr + "T00:00:00");
+    const today = todayStr();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yStr = yesterday.toISOString().split("T")[0];
+    if (dateStr === today) return "Today";
+    if (dateStr === yStr) return "Yesterday";
+    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  }
+
+  function formatWeek(weekStart) {
+    const d = new Date(weekStart + "T00:00:00");
+    return "Week of " + d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+
+  function formatMonth(monthKey) {
+    const [year, month] = monthKey.split("-");
+    const d = new Date(year, parseInt(month) - 1, 1);
+    return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  }
+
+  function netDelta(entries) {
+    return entries.reduce((s, e) => s + e.delta, 0);
+  }
+
+  function deltaColor(n) {
+    if (n > 0) return "#16a34a";
+    if (n < 0) return "#dc2626";
+    return "#6b7280";
+  }
+
+  function deltaLabel(n) {
+    return (n > 0 ? "+" : "") + n + " pts";
+  }
+
+  if (log.length === 0) {
     return (
       <div className="scroll-area" style={{
         display: "flex", flexDirection: "column", alignItems: "center",
@@ -518,61 +568,290 @@ function LogTab({ log }) {
       }}>
         <div style={{ fontSize: "48px", marginBottom: "16px" }}>≡</div>
         <div style={{ fontFamily: "Syne, sans-serif", fontSize: "20px", fontWeight: 800, marginBottom: "8px" }}>
-          No Reviews Yet
+          No entries yet
         </div>
         <div style={{ color: "var(--text-muted)", fontSize: "15px", lineHeight: 1.5 }}>
-          Complete your first daily review to see your history here.
+          Complete your first review to start tracking progress.
         </div>
       </div>
     );
   }
 
-  const grouped = log.reduce((acc, entry) => {
-    const date = entry.date || "Unknown";
-    if (!acc[date]) acc[date] = [];
-    acc[date].push(entry);
-    return acc;
-  }, {});
+  // ── Build structure ──────────────────────────────────────────────────────────
+  const today = todayStr();
+  const cutoffRecent = new Date();
+  cutoffRecent.setDate(cutoffRecent.getDate() - 7);
+  const cutoffRecentStr = cutoffRecent.toISOString().split("T")[0];
 
-  const dates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+  // Group by date
+  const byDate = {};
+  log.forEach(entry => {
+    if (!byDate[entry.date]) byDate[entry.date] = [];
+    byDate[entry.date].push(entry);
+  });
 
-  return (
-    <div className="scroll-area" style={{ padding: "16px" }}>
-      <div style={{ fontFamily: "Syne, sans-serif", fontSize: "22px", fontWeight: 800, marginBottom: "20px" }}>
-        Review Log
-      </div>
-      {dates.map(date => (
-        <div key={date} style={{ marginBottom: "20px" }}>
-          <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>
-            {new Date(date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+  const allDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
+
+  const recentDates = allDates.filter(d => d >= cutoffRecentStr);
+  const olderDates  = allDates.filter(d => d < cutoffRecentStr);
+
+  // Group older dates by week
+  const byWeek = {};
+  olderDates.forEach(d => {
+    const wk = getWeekStart(d);
+    if (!byWeek[wk]) byWeek[wk] = [];
+    byWeek[wk].push(d);
+  });
+
+  const allWeeks = Object.keys(byWeek).sort((a, b) => b.localeCompare(a));
+
+  // Group weeks by month
+  const byMonth = {};
+  allWeeks.forEach(wk => {
+    const mk = wk.slice(0, 7);
+    if (!byMonth[mk]) byMonth[mk] = [];
+    byMonth[mk].push(wk);
+  });
+
+  const allMonths = Object.keys(byMonth).sort((a, b) => b.localeCompare(a));
+
+  // Group months by year
+  const byYear = {};
+  allMonths.forEach(mk => {
+    const yr = mk.slice(0, 4);
+    if (!byYear[yr]) byYear[yr] = [];
+    byYear[yr].push(mk);
+  });
+
+  const allYears = Object.keys(byYear).sort((a, b) => b.localeCompare(a));
+
+  // Decide whether to show months grouped by year
+  const useYears = allMonths.length > 12;
+  const useMonths = allWeeks.length >= 5;
+
+  // ── Render helpers ───────────────────────────────────────────────────────────
+  function DayBlock({ dateStr, isDefaultOpen }) {
+    const entries = byDate[dateStr] || [];
+    const key = "day-" + dateStr;
+    const isOpen = expanded[key] !== undefined ? expanded[key] : isDefaultOpen;
+    const net = netDelta(entries);
+
+    return (
+      <div style={{ marginBottom: "10px" }}>
+        <div onClick={() => toggle(key)} style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          padding: "10px 14px", background: "#fff",
+          border: "1.5px solid var(--border)", borderRadius: isOpen ? "12px 12px 0 0" : "12px",
+          cursor: "pointer",
+        }}>
+          <div style={{ fontWeight: 700, fontSize: "14px", color: "#111827" }}>
+            {formatDate(dateStr)}
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {grouped[date].map((entry, i) => {
-              const opt = SCORE_OPTIONS.find(o => o.val === entry.score);
-              return (
-                <div key={i} style={{
-                  background: "#fff", border: "1.5px solid var(--border)",
-                  borderRadius: "12px", padding: "12px 14px",
-                  display: "flex", justifyContent: "space-between", alignItems: "center",
-                }}>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: "15px" }}>{entry.trait}</div>
-                    <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>{opt?.label}</div>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontFamily: "Syne, sans-serif", fontSize: "20px", fontWeight: 800, color: opt?.color }}>
-                      {entry.score}
-                    </div>
-                    <div style={{ fontSize: "12px", color: opt?.delta > 0 ? "var(--green)" : "var(--red)", fontWeight: 700 }}>
-                      {opt?.delta > 0 ? "+" : ""}{opt?.delta} pts
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "12px", fontWeight: 700, color: deltaColor(net) }}>
+              {deltaLabel(net)}
+            </span>
+            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+              {entries.length} review{entries.length !== 1 ? "s" : ""}
+            </span>
+            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>{isOpen ? "▾" : "▸"}</span>
           </div>
         </div>
-      ))}
+        {isOpen && (
+          <div style={{
+            background: "#fafafa", border: "1.5px solid var(--border)",
+            borderTop: "none", borderRadius: "0 0 12px 12px",
+            overflow: "hidden",
+          }}>
+            {entries.map((e, i) => (
+              <div key={i} style={{
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                padding: "10px 14px",
+                borderTop: i > 0 ? "1px solid var(--border)" : "none",
+              }}>
+                <div style={{ fontWeight: 600, fontSize: "14px", color: "#374151" }}>{e.trait}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{
+                    fontSize: "12px", fontWeight: 700,
+                    color: deltaColor(e.delta),
+                    background: e.delta > 0 ? "#f0fdf4" : e.delta < 0 ? "#fef2f2" : "#f3f4f6",
+                    padding: "2px 8px", borderRadius: "999px",
+                  }}>
+                    {deltaLabel(e.delta)}
+                  </span>
+                  <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                    {SCORE_OPTIONS.find(o => o.delta === e.delta && o.val === e.score)?.label || ""}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function WeekBlock({ weekStart }) {
+    const dates = byWeek[weekStart] || [];
+    const allEntries = dates.flatMap(d => byDate[d] || []);
+    const key = "week-" + weekStart;
+    const isOpen = expanded[key] || false;
+    const net = netDelta(allEntries);
+
+    return (
+      <div style={{ marginBottom: "10px" }}>
+        <div onClick={() => toggle(key)} style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          padding: "10px 14px", background: "#fff",
+          border: "1.5px solid var(--border)", borderRadius: isOpen ? "12px 12px 0 0" : "12px",
+          cursor: "pointer",
+        }}>
+          <div style={{ fontWeight: 700, fontSize: "14px", color: "#111827" }}>
+            {formatWeek(weekStart)}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "12px", fontWeight: 700, color: deltaColor(net) }}>
+              {deltaLabel(net)}
+            </span>
+            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+              {allEntries.length} review{allEntries.length !== 1 ? "s" : ""}
+            </span>
+            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>{isOpen ? "▾" : "▸"}</span>
+          </div>
+        </div>
+        {isOpen && (
+          <div style={{
+            background: "#fafafa", border: "1.5px solid var(--border)",
+            borderTop: "none", borderRadius: "0 0 12px 12px", padding: "10px",
+          }}>
+            {dates.map(d => <DayBlock key={d} dateStr={d} isDefaultOpen={false} />)}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function MonthBlock({ monthKey }) {
+    const weeks = byMonth[monthKey] || [];
+    const allEntries = weeks.flatMap(wk => (byWeek[wk] || []).flatMap(d => byDate[d] || []));
+    const key = "month-" + monthKey;
+    const isOpen = expanded[key] || false;
+    const net = netDelta(allEntries);
+
+    return (
+      <div style={{ marginBottom: "10px" }}>
+        <div onClick={() => toggle(key)} style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          padding: "10px 14px", background: "#fff",
+          border: "1.5px solid var(--border)", borderRadius: isOpen ? "12px 12px 0 0" : "12px",
+          cursor: "pointer",
+        }}>
+          <div style={{ fontWeight: 700, fontSize: "14px", color: "#111827" }}>
+            {formatMonth(monthKey)}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "12px", fontWeight: 700, color: deltaColor(net) }}>
+              {deltaLabel(net)}
+            </span>
+            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+              {allEntries.length} review{allEntries.length !== 1 ? "s" : ""}
+            </span>
+            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>{isOpen ? "▾" : "▸"}</span>
+          </div>
+        </div>
+        {isOpen && (
+          <div style={{
+            background: "#fafafa", border: "1.5px solid var(--border)",
+            borderTop: "none", borderRadius: "0 0 12px 12px", padding: "10px",
+          }}>
+            {weeks.map(wk => <WeekBlock key={wk} weekStart={wk} />)}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function YearBlock({ year }) {
+    const months = byYear[year] || [];
+    const allEntries = months.flatMap(mk =>
+      (byMonth[mk] || []).flatMap(wk =>
+        (byWeek[wk] || []).flatMap(d => byDate[d] || [])
+      )
+    );
+    const key = "year-" + year;
+    const isOpen = expanded[key] || false;
+    const net = netDelta(allEntries);
+
+    return (
+      <div style={{ marginBottom: "10px" }}>
+        <div onClick={() => toggle(key)} style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          padding: "10px 14px", background: "#f9fafb",
+          border: "1.5px solid var(--border)", borderRadius: isOpen ? "12px 12px 0 0" : "12px",
+          cursor: "pointer",
+        }}>
+          <div style={{ fontFamily: "Syne, sans-serif", fontWeight: 800, fontSize: "16px", color: "#111827" }}>
+            {year}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "12px", fontWeight: 700, color: deltaColor(net) }}>
+              {deltaLabel(net)}
+            </span>
+            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+              {allEntries.length} review{allEntries.length !== 1 ? "s" : ""}
+            </span>
+            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>{isOpen ? "▾" : "▸"}</span>
+          </div>
+        </div>
+        {isOpen && (
+          <div style={{
+            background: "#fafafa", border: "1.5px solid var(--border)",
+            borderTop: "none", borderRadius: "0 0 12px 12px", padding: "10px",
+          }}>
+            {months.map(mk => <MonthBlock key={mk} monthKey={mk} />)}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Main render ──────────────────────────────────────────────────────────────
+  return (
+    <div className="scroll-area" style={{ padding: "16px" }}>
+      <div style={{ fontFamily: "Syne, sans-serif", fontSize: "22px", fontWeight: 800, marginBottom: "4px" }}>
+        Progress Log
+      </div>
+      <div style={{ color: "var(--text-muted)", fontSize: "14px", marginBottom: "20px" }}>
+        {log.length} total review{log.length !== 1 ? "s" : ""}
+      </div>
+
+      {/* Recent days — always visible */}
+      {recentDates.length > 0 && (
+        <div style={{ marginBottom: "24px" }}>
+          {recentDates.map(d => (
+            <DayBlock key={d} dateStr={d} isDefaultOpen={d === today} />
+          ))}
+        </div>
+      )}
+
+      {/* Older history */}
+      {olderDates.length > 0 && (
+        <div>
+          <div style={{
+            fontSize: "12px", fontWeight: 700, color: "var(--text-muted)",
+            letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "10px",
+          }}>
+            Earlier
+          </div>
+
+          {useYears
+            ? allYears.map(yr => <YearBlock key={yr} year={yr} />)
+            : useMonths
+              ? allMonths.map(mk => <MonthBlock key={mk} monthKey={mk} />)
+              : allWeeks.map(wk => <WeekBlock key={wk} weekStart={wk} />)
+          }
+        </div>
+      )}
     </div>
   );
 }
