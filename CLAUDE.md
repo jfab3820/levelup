@@ -26,7 +26,7 @@ npm test -- --testNamePattern="renders" --watchAll=false
 
 ## Architecture
 
-The entire app lives in **`src/App.js`** (~1000 lines) — all components, state, and business logic are co-located in one file. There is intentionally no component splitting across files.
+The entire app lives in **`src/App.js`** (925 lines) — all components, state, and business logic are co-located in one file. There is intentionally no component splitting across files.
 
 ### Component Hierarchy
 ```
@@ -74,6 +74,14 @@ All state is loaded from and saved to `localStorage` on every meaningful change 
 - `CATEGORY_COLORS` — maps each category to `{ bg, accent }` colors
 - `LS_KEYS` — the `localStorage` key names (`lu_traits`, `lu_focus`, `lu_log`, `lu_streak`)
 
+### Service Worker (PWA / Offline)
+
+The app registers a service worker for PWA installability and offline capability. `src/serviceWorkerRegistration.js` holds the registration logic (Create React App's standard implementation), and `src/index.js` calls `serviceWorkerRegistration.register()` on startup. Combined with `public/manifest.json`, this lets LevelUp be installed to the home screen and load offline.
+
 ## Deployment
 
 Deployed to Vercel. `vercel.json` rewrites all routes to `/index.html` for SPA routing. Push to `main` triggers an automatic deployment.
+
+## Roadmap / Next Up
+
+- **Supabase auth + cloud-saved stats** — add email/password authentication via Supabase and sync user stats to the cloud (currently `localStorage` only). Not built yet.
