@@ -4,21 +4,156 @@
   padding: 0;
 }
 
+/* ─── Design tokens (light) ─────────────────────────────────────────────────── */
 :root {
+  color-scheme: light;
+
+  --bg: #f8f9fa;
+  --card: #ffffff;
+  --surface: #f3f4f6;
+  --surface-2: #f9fafb;
+  --text: #111827;
+  --text-2: #374151;
+  --text-muted: #6b7280;
+  --text-faint: #9ca3af;
+  --border: #e5e7eb;
+  --overlay: rgba(0, 0, 0, 0.5);
+
   --green: #16a34a;
+  --green-solid: #16a34a;
+  --green-strong: #15803d;
   --green-light: #dcfce7;
   --green-mid: #4ade80;
+  --green-glow: rgba(22, 163, 74, 0.4);
   --red: #dc2626;
+  --red-solid: #dc2626;
   --red-light: #fee2e2;
   --amber: #d97706;
   --amber-light: #fef3c7;
-  --bg: #f8f9fa;
-  --card: #ffffff;
-  --text: #111827;
-  --text-muted: #6b7280;
-  --border: #e5e7eb;
+  --amber-text: #92400e;
+
+  --inverse-bg: #111827;
+  --inverse-text: #ffffff;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-pop: 0 4px 16px rgba(0, 0, 0, 0.18);
+
+  /* Category colors — referenced by CATEGORY_COLORS in App.js */
+  --cat-core: #2563eb;          --cat-core-bg: #eff6ff;
+  --cat-character: #9333ea;     --cat-character-bg: #fdf4ff;
+  --cat-mind: #16a34a;          --cat-mind-bg: #ecfdf5;
+  --cat-body: #ea580c;          --cat-body-bg: #fff7ed;
+  --cat-skills: #ca8a04;        --cat-skills-bg: #fefce8;
+  --cat-relationships: #e11d48; --cat-relationships-bg: #fff1f2;
+  --cat-default: #6b7280;       --cat-default-bg: #f9fafb;
+
+  /* Review score colors when used as text */
+  --score-1: #dc2626;
+  --score-2: #ea580c;
+  --score-3: #6b7280;
+  --score-4: #16a34a;
+  --score-5: #15803d;
+
   --nav-h: 68px;
   --header-h: 64px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+/* ─── Design tokens (dark) ──────────────────────────────────────────────────── */
+/* Applied when the user picks Dark, or when the device is dark and the user left it on System. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0b0f14;
+  --card: #151b23;
+  --surface: #212934;
+  --surface-2: #10151c;
+  --text: #f3f4f6;
+  --text-2: #d1d5db;
+  --text-muted: #9ca3af;
+  --text-faint: #6b7280;
+  --border: #2a323d;
+  --overlay: rgba(0, 0, 0, 0.65);
+
+  --green: #4ade80;
+  --green-solid: #15803d;
+  --green-strong: #86efac;
+  --green-light: rgba(74, 222, 128, 0.14);
+  --green-mid: #4ade80;
+  --green-glow: rgba(21, 128, 61, 0.45);
+  --red: #f87171;
+  --red-solid: #b91c1c;
+  --red-light: rgba(248, 113, 113, 0.14);
+  --amber: #fbbf24;
+  --amber-light: rgba(251, 191, 36, 0.14);
+  --amber-text: #fcd34d;
+
+  --inverse-bg: #f3f4f6;
+  --inverse-text: #111827;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-pop: 0 4px 16px rgba(0, 0, 0, 0.5);
+
+  --cat-core: #60a5fa;          --cat-core-bg: rgba(96, 165, 250, 0.12);
+  --cat-character: #c084fc;     --cat-character-bg: rgba(192, 132, 252, 0.12);
+  --cat-mind: #4ade80;          --cat-mind-bg: rgba(74, 222, 128, 0.12);
+  --cat-body: #fb923c;          --cat-body-bg: rgba(251, 146, 60, 0.12);
+  --cat-skills: #facc15;        --cat-skills-bg: rgba(250, 204, 21, 0.12);
+  --cat-relationships: #fb7185; --cat-relationships-bg: rgba(251, 113, 133, 0.12);
+  --cat-default: #9ca3af;       --cat-default-bg: rgba(156, 163, 175, 0.12);
+
+  --score-1: #f87171;
+  --score-2: #fb923c;
+  --score-3: #9ca3af;
+  --score-4: #4ade80;
+  --score-5: #86efac;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --bg: #0b0f14;
+    --card: #151b23;
+    --surface: #212934;
+    --surface-2: #10151c;
+    --text: #f3f4f6;
+    --text-2: #d1d5db;
+    --text-muted: #9ca3af;
+    --text-faint: #6b7280;
+    --border: #2a323d;
+    --overlay: rgba(0, 0, 0, 0.65);
+
+    --green: #4ade80;
+    --green-solid: #15803d;
+    --green-strong: #86efac;
+    --green-light: rgba(74, 222, 128, 0.14);
+    --green-mid: #4ade80;
+    --green-glow: rgba(21, 128, 61, 0.45);
+    --red: #f87171;
+    --red-solid: #b91c1c;
+    --red-light: rgba(248, 113, 113, 0.14);
+    --amber: #fbbf24;
+    --amber-light: rgba(251, 191, 36, 0.14);
+    --amber-text: #fcd34d;
+
+    --inverse-bg: #f3f4f6;
+    --inverse-text: #111827;
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --shadow-pop: 0 4px 16px rgba(0, 0, 0, 0.5);
+
+    --cat-core: #60a5fa;          --cat-core-bg: rgba(96, 165, 250, 0.12);
+    --cat-character: #c084fc;     --cat-character-bg: rgba(192, 132, 252, 0.12);
+    --cat-mind: #4ade80;          --cat-mind-bg: rgba(74, 222, 128, 0.12);
+    --cat-body: #fb923c;          --cat-body-bg: rgba(251, 146, 60, 0.12);
+    --cat-skills: #facc15;        --cat-skills-bg: rgba(250, 204, 21, 0.12);
+    --cat-relationships: #fb7185; --cat-relationships-bg: rgba(251, 113, 133, 0.12);
+    --cat-default: #9ca3af;       --cat-default-bg: rgba(156, 163, 175, 0.12);
+
+    --score-1: #f87171;
+    --score-2: #fb923c;
+    --score-3: #9ca3af;
+    --score-4: #4ade80;
+    --score-5: #86efac;
+  }
 }
 
 html, body {
@@ -27,10 +162,11 @@ html, body {
 }
 
 body {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #root {
@@ -43,14 +179,46 @@ body {
 }
 
 button {
-  font-family: 'DM Sans', sans-serif;
+  font-family: inherit;
   cursor: pointer;
   border: none;
   background: none;
+  color: inherit;
 }
 
-input, select {
-  font-family: 'DM Sans', sans-serif;
+button:disabled {
+  cursor: default;
+}
+
+input, select, textarea {
+  font-family: inherit;
+  color: var(--text);
+}
+
+a {
+  color: var(--green);
+}
+
+:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+/* Text inputs used in the Add Trait and Account forms */
+.lu-input {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 16px; /* 16px stops iOS from zooming the page when a field is focused */
+  background: var(--card);
+  outline: none;
+}
+
+.lu-input:focus {
+  border-color: var(--green);
 }
 
 /* Scrollable content area */
@@ -60,6 +228,21 @@ input, select {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   padding-bottom: calc(var(--nav-h) + 16px);
+}
+
+/* Bottom sheets and dialogs stay inside the phone-width column on wide screens */
+.lu-sheet {
+  width: 100%;
+  max-width: 430px;
+  margin: 0 auto;
+}
+
+/* Loading placeholder for the AI Powerup */
+.lu-skeleton {
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--surface) 25%, var(--border) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
 }
 
 /* Animations */
@@ -82,4 +265,20 @@ input, select {
 @keyframes toastIn {
   from { opacity: 0; transform: translateX(-50%) translateY(10px); }
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

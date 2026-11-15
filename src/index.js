@@ -12,5 +12,12 @@ root.render(
   </React.StrictMode>
 );
 
-serviceWorkerRegistration.register();
+// When a new deployment has downloaded, tell the app so it can offer a "Refresh" banner.
+// The registration is also kept on window in case the event fires before React has mounted.
+serviceWorkerRegistration.register({
+  onUpdate: registration => {
+    window.__luWaitingRegistration = registration;
+    window.dispatchEvent(new CustomEvent('lu-sw-update', { detail: registration }));
+  },
+});
 reportWebVitals();
