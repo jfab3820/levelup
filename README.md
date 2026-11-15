@@ -1,70 +1,95 @@
-# Getting Started with Create React App
+# LevelUp
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A mobile-first PWA for tracking personal character development. Score yourself on 20+ traits, review a few every day, keep a streak going, and get a daily **Powerup**: a one-minute lesson aimed at your lowest traits.
 
-## Available Scripts
+Live: https://levelup-hazel-seven.vercel.app
 
-In the project directory, you can run:
+## What it does
 
-### `npm start`
+- **Traits** — 20 built-in traits across 6 categories, plus your own. Tap up to 3 to focus on today.
+- **Review** — score each focus trait 1–5. Scores move up or down and the review is logged.
+- **Powerup** — one short lesson a day with a concrete action and a question for tonight. Works offline from a built-in library; signed-in users can get lessons written by Claude.
+- **Log** — review history grouped by day, week, month, and year.
+- **Decay** — a reviewed trait that isn't in focus loses 1 point per 7 days until you review it again.
+- **Settings** — account and sync, light/dark theme, backups, undo, reset.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+Everything is saved on the device (`localStorage`). Cloud sync is optional.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Run it
 
-### `npm test`
+```bash
+npm install
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```bash
+npm start
+```
 
-### `npm run build`
+```bash
+npm test
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```bash
+npm run build
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+`npm start` serves the app at http://localhost:3000. The service worker (offline mode) only runs in production builds.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Project layout
 
-### `npm run eject`
+| Path | What it is |
+|---|---|
+| `src/App.js` | The whole app: components, state, and logic |
+| `src/powerupLibrary.js` | Built-in Powerup lessons (content only) |
+| `src/index.css` | Design tokens (light and dark) and global styles |
+| `src/cloudConfig.json` | Supabase project URL and publishable key (empty = cloud off) |
+| `src/service-worker.js` | Offline support (compiled by the build) |
+| `api/powerup.js` | Vercel serverless function that asks Claude for a lesson |
+| `supabase/migrations/` | Database tables and security rules for cloud sync |
+| `src/*.test.js` | Tests |
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+## Turning on cloud sync and AI Powerups
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+The app runs fine without any of this. These steps add sign-in, sync across devices, and Claude-written lessons.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+1. **Create a Supabase project** at https://supabase.com (the free plan is enough).
+2. **Create the tables.** In the Supabase dashboard open *SQL Editor*, paste the contents of `supabase/migrations/20261115000000_levelup_cloud.sql`, and run it.
+3. **Point the app at the project.** In *Project Settings → API*, copy the project URL and the publishable key into `src/cloudConfig.json`:
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+   ```json
+   {
+     "supabaseUrl": "https://YOUR-PROJECT.supabase.co",
+     "supabasePublishableKey": "sb_publishable_..."
+   }
+   ```
 
-## Learn More
+   Both values are safe to commit. The database only lets a signed-in user read and write their own row.
+4. **Set the site URL.** In *Authentication → URL Configuration*, set *Site URL* to the app's address (for example `https://levelup-hazel-seven.vercel.app`) so confirmation and password-reset emails link back to the app.
+5. **Add the Anthropic API key** (only needed for AI Powerups). In the Vercel project go to *Settings → Environment Variables* and add `ANTHROPIC_API_KEY`. This one is a secret: it lives only in Vercel, never in the code.
+6. Commit, push, and deploy.
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### AI Powerup settings
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+| Vercel environment variable | Purpose |
+|---|---|
+| `ANTHROPIC_API_KEY` | Required. Your key from https://platform.claude.com |
+| `POWERUP_MODEL` | Optional. Defaults to `claude-opus-5-5`. Set to `claude-haiku-5-5` for the lowest cost |
 
-### Code Splitting
+Guardrails on spending:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+- The endpoint only answers signed-in users.
+- Each user gets 5 AI lessons per 24 hours (enforced in the database by `claim_powerup_generation`).
+- Set a monthly spend limit in the Anthropic Console as a backstop.
 
-### Analyzing the Bundle Size
+If anything fails (no key, limit reached, offline), the app quietly uses a built-in lesson instead.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## How sync works
 
-### Making a Progressive Web App
+- The whole state (traits, focus, log, streak, Powerups) is stored as one row per user.
+- Local changes upload about a second and a half after they happen. Coming back to the app or coming back online triggers a sync.
+- Each save only succeeds if the cloud copy hasn't changed since this device last saw it. If it has, the device looks again instead of overwriting.
+- The first time a device with progress signs in to an account that also has progress, the app asks which one to keep. The other is replaced, and the device's copy is kept as a safety backup either way.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+## Deployment
 
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Hosted on Vercel. Pushing to `main` deploys to production; other branches get preview deployments. `vercel.json` sends every route except `/api/*` to `index.html`.
